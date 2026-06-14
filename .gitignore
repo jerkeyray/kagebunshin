@@ -1,0 +1,29 @@
+# Local docs and planning scratch files
+temp_docs/
+
+# Private data and generated datasets
+data/raw/
+data/processed/
+data/**/*.js
+data/**/*.jsonl
+data/**/*.json
+
+# Model artifacts
+adapters/
+*.safetensors
+*.bin
+*.gguf
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+
+# Python/local tooling
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.DS_Store
