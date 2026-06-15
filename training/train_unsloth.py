@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import random
 from pathlib import Path
@@ -119,6 +120,7 @@ def main() -> None:
     random.seed(args.seed)
     preflight_dataset(args.train_path, args.valid_path)
 
+    import unsloth  # noqa: F401
     from datasets import load_dataset
     from transformers import TrainingArguments
     from trl import SFTTrainer
@@ -161,8 +163,8 @@ def main() -> None:
         num_train_epochs=args.epochs,
         max_steps=args.max_steps,
         learning_rate=args.learning_rate,
-        fp16=True,
-        bf16=False,
+        fp16=False,
+        bf16=True,
         logging_steps=args.logging_steps,
         eval_strategy="steps",
         eval_steps=args.eval_steps,
@@ -175,16 +177,26 @@ def main() -> None:
         report_to="none",
     )
 
-    trainer = SFTTrainer(
-        model=model,
-        tokenizer=tokenizer,
-        train_dataset=dataset["train"],
-        eval_dataset=dataset["validation"],
-        dataset_text_field="text",
-        max_seq_length=args.max_seq_length,
-        packing=False,
-        args=training_args,
-    )
+    trainer_kwargs = {
+        "model": model,
+        "train_dataset": dataset["train"],
+        "eval_dataset": dataset["validation"],
+        "args": training_args,
+    }
+    trainer_params = inspect.signature(SFTTrainer.__init__).parameters
+    if "processing_class" in trainer_params:
+        trainer_kwargs["processing_class"] = tokenizer
+    else:
+        trainer_kwargs.update(
+            {
+                "tokenizer": tokenizer,
+                "dataset_text_field": "text",
+                "max_seq_length": args.max_seq_length,
+                "packing": False,
+            }
+        )
+
+    trainer = SFTTrainer(**trainer_kwargs)
 
     trainer.train()
     model.save_pretrained(str(args.output_dir))
