@@ -25,7 +25,7 @@ SYSTEM_PROMPT = (
     "You are Kagebunshin, a private drafting assistant trained to write in "
     "Aditya's style."
 )
-DATASET_VERSION = "v1-heuristic-originals-replies"
+DATASET_VERSION = "v2-heuristic-topic-tags"
 DEFAULT_REPLY_LIMIT = 2000
 DEFAULT_VALID_RATIO = 0.1
 DEFAULT_SEED = 42
@@ -113,6 +113,171 @@ BLUNT_MARKERS = {
     "fucked",
 }
 
+TOPIC_KEYWORDS = [
+    (
+        "AI tools and software projects",
+        {
+            "ai",
+            "llm",
+            "llms",
+            "gpt",
+            "gippity",
+            "claude",
+            "cursor",
+            "agent",
+            "agents",
+            "rag",
+            "model",
+            "models",
+        },
+    ),
+    (
+        "programming and developer culture",
+        {
+            "code",
+            "coding",
+            "programming",
+            "programmer",
+            "developer",
+            "dev",
+            "backend",
+            "frontend",
+            "css",
+            "javascript",
+            "typescript",
+            "python",
+            "golang",
+            "go",
+            "rust",
+            "github",
+            "api",
+            "database",
+            "db",
+            "vercel",
+            "web",
+            "scraping",
+            "project",
+            "projects",
+        },
+    ),
+    (
+        "learning and studying",
+        {
+            "learn",
+            "learning",
+            "study",
+            "studying",
+            "exam",
+            "exams",
+            "book",
+            "books",
+            "course",
+            "courses",
+            "college",
+            "resource",
+            "resources",
+            "leetcode",
+            "dsa",
+        },
+    ),
+    (
+        "work, jobs, and internships",
+        {
+            "work",
+            "working",
+            "job",
+            "jobs",
+            "intern",
+            "internship",
+            "company",
+            "startup",
+            "interview",
+            "resume",
+            "linkedin",
+        },
+    ),
+    (
+        "internet culture and social media",
+        {
+            "twitter",
+            "tweet",
+            "tweets",
+            "post",
+            "posts",
+            "posting",
+            "x",
+            "tl",
+            "followers",
+            "content",
+            "account",
+            "linkedin",
+        },
+    ),
+    (
+        "money and life decisions",
+        {
+            "money",
+            "pay",
+            "paid",
+            "cost",
+            "costs",
+            "financial",
+            "finance",
+            "house",
+            "rent",
+            "buying",
+            "salary",
+        },
+    ),
+    (
+        "health, gym, and sleep",
+        {
+            "gym",
+            "lift",
+            "lifts",
+            "sleep",
+            "caffeine",
+            "coffee",
+            "health",
+            "bulking",
+            "cutting",
+            "brain",
+        },
+    ),
+    (
+        "media, books, and taste",
+        {
+            "movie",
+            "movies",
+            "film",
+            "films",
+            "anime",
+            "manga",
+            "book",
+            "books",
+            "music",
+            "song",
+            "taste",
+        },
+    ),
+    (
+        "daily life and random thoughts",
+        {
+            "life",
+            "day",
+            "today",
+            "morning",
+            "night",
+            "home",
+            "room",
+            "food",
+            "egg",
+            "eggs",
+            "delhi",
+        },
+    ),
+]
+
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
@@ -138,31 +303,16 @@ def words(text: str) -> set[str]:
     return set(re.findall(r"[a-zA-Z][a-zA-Z0-9_+-]*", text.lower()))
 
 
-def topic_from_text(text: str, max_chars: int = 150) -> str:
-    topic = EMOJI_RE.sub("", text)
-    topic = PUNCT_RE.sub("", topic)
-    topic = topic.replace("&amp;", "and")
-    topic = WHITESPACE_RE.sub(" ", topic).strip(" ,.-:;!?")
-    replacements = {
-        " rn": " right now",
-        " im ": " i am ",
-        " i'm ": " i am ",
-        " ive ": " i have ",
-        " i've ": " i have ",
-        " idk ": " i don't know ",
-        " y'all ": " people ",
-        " ppl ": " people ",
-        " mfs ": " people ",
-        " mf ": " someone ",
-        " ngmi": " not making it",
-    }
-    padded = f" {topic} "
-    for old, new in replacements.items():
-        padded = padded.replace(old, new)
-    topic = WHITESPACE_RE.sub(" ", padded).strip()
-    if len(topic) > max_chars:
-        topic = topic[:max_chars].rsplit(" ", 1)[0].strip()
-    return topic or text[:max_chars].strip()
+def topic_from_text(text: str) -> str:
+    text_words = words(text)
+    labels = [
+        label for label, keywords in TOPIC_KEYWORDS if text_words & keywords
+    ][:2]
+    if not labels:
+        labels = ["daily life and random thoughts"]
+    if len(labels) == 1:
+        return labels[0]
+    return f"{labels[0]} mixed with {labels[1]}"
 
 
 def prompt_style(text: str, kind: str) -> str:
@@ -186,8 +336,8 @@ def user_prompt(text: str, kind: str) -> str:
     topic = topic_from_text(text)
     style = prompt_style(text, kind)
     if kind == "reply":
-        return f"{style} about this idea: {topic}"
-    return f"{style} about this idea: {topic}"
+        return f"{style} about {topic}."
+    return f"{style} about {topic}."
 
 
 def reply_is_usable(reply: dict[str, Any]) -> bool:
