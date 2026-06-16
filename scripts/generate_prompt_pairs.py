@@ -298,10 +298,23 @@ def too_much_prompt_overlap(prompt: str, answer: str) -> bool:
     return len(overlap) / max(1, len(prompt_words)) > 0.45
 
 
+def prompt_kind_matches(prompt: str, kind: str) -> bool:
+    normalized = prompt.lower()
+    asks_for_reply = "reply" in normalized
+    asks_for_tweet = "tweet" in normalized or "post" in normalized
+    if kind == "original":
+        return asks_for_tweet and not asks_for_reply
+    return asks_for_reply
+
+
 def build_pair(record: dict[str, Any], result: dict[str, Any], provider: str) -> dict[str, Any]:
     keep = bool(result.get("keep"))
     prompt = str(result.get("prompt", "")).strip()
-    if keep and (not prompt or too_much_prompt_overlap(prompt, record["text"])):
+    if keep and (
+        not prompt
+        or too_much_prompt_overlap(prompt, record["text"])
+        or not prompt_kind_matches(prompt, record["kind"])
+    ):
         keep = False
     return {
         "tweet_id": record["id"],
